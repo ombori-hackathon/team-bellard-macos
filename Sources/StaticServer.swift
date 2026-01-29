@@ -1,78 +1,127 @@
 import Foundation
-import Swifter
+import Vapor
+import NIOSSL
 
 class StaticServer {
-    private var server: HttpServer?
+    private var app: Application?
     private(set) var port: Int?
     private(set) var isRunning = false
+    private(set) var isHTTPS = false
     let folderURL: URL
 
     init(folderURL: URL) {
         self.folderURL = folderURL
     }
 
-    func start() throws -> Int {
+    func start(https: Bool = false, certPath: String? = nil, keyPath: String? = nil) throws -> Int {
         guard let port = PortManager.shared.acquirePort() else {
             throw ServerError.noPortAvailable
         }
 
-        let server = HttpServer()
+        // Create Vapor app with minimal logging
+        var env = Environment.production
+        env.arguments = ["serve"]
+        let app = Application(env)
 
-        // Use notFoundHandler as catch-all for all paths
-        server.notFoundHandler = { [weak self] request in
-            guard let self = self else { return .notFound }
+        // Configure server
+        app.http.server.configuration.hostname = "0.0.0.0"
+        app.http.server.configuration.port = port
 
-            let requestPath = request.path.removingPercentEncoding ?? request.path
-            let cleanPath = requestPath.hasPrefix("/") ? String(requestPath.dropFirst()) : requestPath
+        // Configure TLS if requested
+        if https, let certPath = certPath, let keyPath = keyPath {
+            do {
+                let certs = try NIOSSLCertificate.fromPEMFile(certPath)
+                let privateKey = try NIOSSLPrivateKey(file: keyPath, format: .pem)
+
+                var tlsConfig = TLSConfiguration.makeServerConfiguration(
+                    certificateChain: certs.map { .certificate($0) },
+                    privateKey: .privateKey(privateKey)
+                )
+                tlsConfig.certificateVerification = .none
+
+                app.http.server.configuration.tlsConfiguration = tlsConfig
+                self.isHTTPS = true
+            } catch {
+                print("TLS setup failed: \(error)")
+                // Fall back to HTTP
+                self.isHTTPS = false
+            }
+        } else {
+            self.isHTTPS = false
+        }
+
+        // Serve static files
+        let folderPath = folderURL.path
+
+        // Catch-all route for file serving
+        app.get("**") { req -> Response in
+            let path = req.url.path
+            let cleanPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
 
             let fileURL = cleanPath.isEmpty
                 ? self.folderURL
                 : self.folderURL.appendingPathComponent(cleanPath)
 
-            return self.serveFileOrDirectory(at: fileURL, requestPath: requestPath)
+            return self.serveFileOrDirectory(at: fileURL, requestPath: path, req: req)
         }
 
-        try server.start(in_port_t(port), forceIPv4: true)
+        // Root route
+        app.get { req -> Response in
+            return self.serveFileOrDirectory(at: self.folderURL, requestPath: "/", req: req)
+        }
 
-        self.server = server
+        self.app = app
         self.port = port
         self.isRunning = true
+
+        // Start server in background
+        Task {
+            do {
+                try app.start()
+            } catch {
+                print("Server start error: \(error)")
+            }
+        }
 
         return port
     }
 
-    private func serveFileOrDirectory(at url: URL, requestPath: String) -> HttpResponse {
+    private func serveFileOrDirectory(at url: URL, requestPath: String, req: Request) -> Response {
         let fileManager = FileManager.default
         var isDirectory: ObjCBool = false
 
         guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-            return .notFound
+            return Response(status: .notFound, body: .init(string: "Not Found"))
         }
 
         if isDirectory.boolValue {
             // Check for index.html in directory
             let indexURL = url.appendingPathComponent("index.html")
             if fileManager.fileExists(atPath: indexURL.path) {
-                return serveFile(at: indexURL)
+                return serveFile(at: indexURL, req: req)
             }
             // Show directory listing
             return directoryListing(at: url, requestPath: requestPath)
         } else {
-            return serveFile(at: url)
+            return serveFile(at: url, req: req)
         }
     }
 
-    private func serveFile(at url: URL) -> HttpResponse {
+    private func serveFile(at url: URL, req: Request) -> Response {
         do {
             let data = try Data(contentsOf: url)
             let mimeType = mimeTypeForExtension(url.pathExtension)
-            return .ok(.data(data, contentType: mimeType))
+
+            var headers = HTTPHeaders()
+            headers.add(name: .contentType, value: mimeType)
+
+            return Response(status: .ok, headers: headers, body: .init(data: data))
         } catch {
-            return .internalServerError
+            return Response(status: .internalServerError, body: .init(string: "Internal Server Error"))
         }
     }
 
-    private func directoryListing(at url: URL, requestPath: String) -> HttpResponse {
+    private func directoryListing(at url: URL, requestPath: String) -> Response {
         do {
             let contents = try FileManager.default.contentsOfDirectory(
                 at: url,
@@ -165,9 +214,12 @@ class StaticServer {
             </html>
             """
 
-            return .ok(.html(html))
+            var headers = HTTPHeaders()
+            headers.add(name: .contentType, value: "text/html; charset=utf-8")
+
+            return Response(status: .ok, headers: headers, body: .init(string: html))
         } catch {
-            return .internalServerError
+            return Response(status: .internalServerError, body: .init(string: "Internal Server Error"))
         }
     }
 
@@ -217,13 +269,14 @@ class StaticServer {
     }
 
     func stop() {
-        server?.stop()
+        app?.shutdown()
         if let port = port {
             PortManager.shared.releasePort(port)
         }
-        server = nil
+        app = nil
         port = nil
         isRunning = false
+        isHTTPS = false
     }
 }
 

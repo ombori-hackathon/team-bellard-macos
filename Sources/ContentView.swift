@@ -4,6 +4,7 @@ import AppKit
 struct ContentView: View {
     @ObservedObject var appState: AppState
     @State private var isDropTargeted = false
+    @State private var showHTTPSError = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,8 +46,30 @@ struct ContentView: View {
             }
 
             Spacer()
+
+            // HTTPS setup status
+            if appState.isSettingUpHTTPS {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Setting up HTTPS certificates...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.bottom, 8)
+            }
         }
         .frame(minWidth: 500, minHeight: 400)
+        .alert("HTTPS Setup Failed", isPresented: $showHTTPSError) {
+            Button("OK") {
+                appState.httpsSetupError = nil
+            }
+        } message: {
+            Text(appState.httpsSetupError ?? "Unknown error occurred while setting up HTTPS certificates.")
+        }
+        .onChange(of: appState.httpsSetupError) { newValue in
+            showHTTPSError = newValue != nil
+        }
     }
 }
 
@@ -143,7 +166,28 @@ struct ProjectCard: View {
                     .foregroundColor(project.type == .nodejs ? .green : .blue)
                     .cornerRadius(4)
 
+                // HTTPS badge
+                if project.useHTTPS {
+                    Text("HTTPS")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.2))
+                        .foregroundColor(.orange)
+                        .cornerRadius(4)
+                }
+
                 Spacer()
+
+                // HTTPS toggle
+                Button(action: {
+                    appState.toggleHTTPS(for: project)
+                }) {
+                    Image(systemName: project.useHTTPS ? "lock.fill" : "lock.open")
+                        .foregroundColor(project.useHTTPS ? .orange : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(project.useHTTPS ? "Disable HTTPS" : "Enable HTTPS")
 
                 // Status indicator
                 Circle()
