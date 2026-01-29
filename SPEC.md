@@ -1,8 +1,8 @@
-# Xrve - Native macOS Web Server App
+# Serv - Native macOS Web Server App
 
 ## Overview
 
-**Xrve** is a native macOS application that allows users to run any folder as a local web server with human-friendly local DNS names. The app supports both static file serving and intelligent Node.js project detection with dependency management and script execution.
+**Serv** is a native macOS application that allows users to run any folder as a local web server with human-friendly local DNS names. The app supports both static file serving and intelligent Node.js project detection with dependency management and script execution.
 
 **No backend required** - this is a pure Swift/SwiftUI application.
 
@@ -12,7 +12,7 @@
 
 | Decision | Choice |
 |----------|--------|
-| **App Name** | Xrve |
+| **App Name** | Serv |
 | **Multiple Projects** | Yes, run simultaneously |
 | **Port Strategy** | Auto-assigned random available ports |
 | **URL Format** | `project-name.local:port` (e.g., `movies-shop.local:8742`) |
@@ -151,7 +151,7 @@ Users can drag or select any folder, and the app will:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Xrve                                               [─][□][×] │
+│  Serv                                               [─][□][×] │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -197,7 +197,7 @@ Users can drag or select any folder, and the app will:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Xrve - Setup: movies-shop                                  │
+│  Serv - Setup: movies-shop                                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  📁 /Users/john/projects/movies-shop                       │
@@ -314,7 +314,7 @@ enum PackageManager {
 ## Implementation Phases
 
 ### Phase 1: Basic Static Server
-- [x] Project setup (rename app to Xrve)
+- [x] Project setup (rename app to Serv)
 - [ ] Folder selection (drag & drop + picker)
 - [ ] Embedded HTTP server to serve static files
 - [ ] Auto-assign available port
@@ -373,7 +373,7 @@ enum PackageManager {
 - Remove project = remove from persistence
 
 **Technical approach:**
-- Use `UserDefaults` or `~/Library/Application Support/Xrve/projects.json`
+- Use `UserDefaults` or `~/Library/Application Support/Serv/projects.json`
 - Store: folder path, assigned port, project type, preferences
 
 ---

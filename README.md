@@ -1,4 +1,4 @@
-# Xrve
+# Serv
 
 A native macOS menu bar application that lets you run any folder as a local web server with human-friendly `.local` domain names.
 
@@ -6,9 +6,9 @@ A native macOS menu bar application that lets you run any folder as a local web 
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## What is Xrve?
+## What is Serv?
 
-Xrve (pronounced "serve") is a lightweight macOS utility that makes local web development effortless. Simply drag and drop a folder, and Xrve will:
+Serv (pronounced "serve") is a lightweight macOS utility that makes local web development effortless. Simply drag and drop a folder, and Serv will:
 
 - Serve it as a local HTTP server
 - Assign a random available port
@@ -60,13 +60,13 @@ cd team-bellard-macos
 swift build
 
 # Run
-swift run Xrve
+swift run Serv
 ```
 
 ## Usage
 
-1. **Launch Xrve** - The app appears in your menu bar (server rack icon)
-2. **Add a folder** - Click the menu bar icon → "Open Xrve" → Drag a folder or click "Browse..."
+1. **Launch Serv** - The app appears in your menu bar (server rack icon)
+2. **Add a folder** - Click the menu bar icon → "Open Serv" → Drag a folder or click "Browse..."
 3. **Start serving** - Click the play button next to your project
 4. **Access in browser** - Click "Open" or visit `http://folder-name.local:port`
 
@@ -82,7 +82,7 @@ Click the menu bar icon to:
 
 ```
 Sources/
-├── XrveApp.swift        # App entry point, menu bar setup
+├── ServApp.swift        # App entry point, menu bar setup
 ├── ContentView.swift    # Main window UI
 ├── AppState.swift       # Centralized state management
 ├── Models.swift         # Data models (Project, enums)
@@ -104,14 +104,14 @@ Sources/
 ## Project Types
 
 ### Static Folders
-Any folder without a `package.json` is treated as a static site. Xrve serves all files directly with appropriate MIME types.
+Any folder without a `package.json` is treated as a static site. Serv serves all files directly with appropriate MIME types.
 
 ### Node.js Projects (Detected)
 Folders with `package.json` are identified as Node.js projects. Currently shows detection status; script execution coming in future updates.
 
 ## Supported File Types
 
-Xrve serves files with correct MIME types for:
+Serv serves files with correct MIME types for:
 
 | Category | Extensions |
 |----------|------------|
@@ -134,7 +134,7 @@ This is part of the [team-bellard-ws](https://github.com/ombori-hackathon/team-b
 swift build
 
 # Run directly
-swift run Xrve
+swift run Serv
 
 # Build for release
 swift build -c release
