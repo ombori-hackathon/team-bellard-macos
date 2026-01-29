@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct XrveApp: App {
+struct ServApp: App {
     @StateObject private var appState = AppState()
     @Environment(\.openWindow) private var openWindow
 
@@ -28,7 +28,7 @@ struct XrveApp: App {
         .menuBarExtraStyle(.window)
 
         // Main Window
-        Window("Xrve", id: "main") {
+        Window("Serv", id: "main") {
             ContentView(appState: appState)
         }
         .defaultSize(width: 600, height: 500)
@@ -46,7 +46,7 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack {
-                Text("Xrve")
+                Text("Serv")
                     .font(.headline)
                 Spacer()
                 let runningCount = appState.projects.filter { $0.status == .running }.count
@@ -85,7 +85,7 @@ struct MenuBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "macwindow")
-                        Text("Open Xrve")
+                        Text("Open Serv")
                         Spacer()
                     }
                     .padding(.horizontal, 12)
@@ -100,7 +100,7 @@ struct MenuBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "power")
-                        Text("Quit Xrve")
+                        Text("Quit Serv")
                         Spacer()
                     }
                     .padding(.horizontal, 12)

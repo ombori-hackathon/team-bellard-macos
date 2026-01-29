@@ -9,7 +9,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Xrve")
+                Text("Serv")
                     .font(.title.bold())
                 Spacer()
                 Text("\(appState.projects.filter { $0.status == .running }.count) running")

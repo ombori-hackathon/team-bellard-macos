@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Xrve",
+    name: "Serv",
     platforms: [.macOS(.v13)],
     dependencies: [
         .package(url: "https://github.com/httpswift/swifter.git", from: "1.5.0")
     ],
     targets: [
         .executableTarget(
-            name: "Xrve",
+            name: "Serv",
             dependencies: [
                 .product(name: "Swifter", package: "swifter")
             ],
