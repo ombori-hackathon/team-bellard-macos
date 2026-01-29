@@ -363,6 +363,28 @@ enum PackageManager {
 
 ## Confirmed Features (To Implement)
 
+### Feature 9: HTTPS Support
+**Description:** Serve projects over HTTPS with locally-trusted certificates.
+
+**Details:**
+- Generate a local Certificate Authority (CA) on first run
+- User trusts the CA once in macOS Keychain
+- Generate certificates for each `.local` domain signed by the CA
+- Swifter supports TLS - pass certificate and key to server
+- URLs become `https://project-name.local:port`
+
+**Technical approach:**
+- Use Security framework or OpenSSL to generate CA and certs
+- Store CA in `~/Library/Application Support/Serv/`
+- Prompt user to trust CA via Keychain Access (or automate with `security` command)
+- Generate per-project certs on demand, cache them
+
+**Open questions:**
+- Use same port for HTTPS, or separate ports (e.g., 443xx range)?
+- Offer both HTTP and HTTPS, or HTTPS only?
+
+---
+
 ### Feature 7: Persistence
 **Description:** Remember all added projects across app restarts.
 
