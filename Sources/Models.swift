@@ -6,11 +6,13 @@ struct SavedProject: Codable {
     let folderPath: String
     let useHTTPS: Bool
     let preferredPort: Int?
+    let customName: String?
 
     init(from project: Project) {
         self.folderPath = project.folderURL.path
         self.useHTTPS = project.useHTTPS
         self.preferredPort = project.port
+        self.customName = project.customName
     }
 }
 
@@ -19,8 +21,15 @@ struct SavedProject: Codable {
 struct Project: Identifiable {
     let id: UUID
     let folderURL: URL
-    let name: String
-    let sanitizedName: String
+    var customName: String?
+
+    var name: String {
+        customName ?? folderURL.lastPathComponent
+    }
+
+    var sanitizedName: String {
+        Project.sanitizeName(name)
+    }
 
     var type: ProjectType
     var status: ProjectStatus
@@ -42,8 +51,7 @@ struct Project: Identifiable {
     init(folderURL: URL) {
         self.id = UUID()
         self.folderURL = folderURL
-        self.name = folderURL.lastPathComponent
-        self.sanitizedName = Project.sanitizeName(folderURL.lastPathComponent)
+        self.customName = nil
         self.type = .static
         self.status = .stopped
         self.port = nil
@@ -58,8 +66,7 @@ struct Project: Identifiable {
         let url = URL(fileURLWithPath: saved.folderPath)
         self.id = UUID()
         self.folderURL = url
-        self.name = url.lastPathComponent
-        self.sanitizedName = Project.sanitizeName(url.lastPathComponent)
+        self.customName = saved.customName
         self.type = .static
         self.status = .stopped
         self.port = saved.preferredPort

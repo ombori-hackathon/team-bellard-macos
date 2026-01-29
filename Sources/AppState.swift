@@ -89,6 +89,34 @@ class AppState: ObservableObject {
         }
     }
 
+    func updateProject(_ project: Project, name: String?, port: Int?) {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+
+        let wasRunning = projects[index].status == .running
+
+        // Stop if running (port change requires restart)
+        if wasRunning {
+            stopProject(project)
+        }
+
+        // Update name
+        if let name = name, !name.isEmpty {
+            projects[index].customName = name
+        }
+
+        // Update port
+        if let port = port, port >= 1024 && port <= 65535 {
+            projects[index].port = port
+        }
+
+        saveProjects()
+
+        // Restart if was running
+        if wasRunning {
+            startProject(projects[index])
+        }
+    }
+
     func startProject(_ project: Project) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
 
@@ -153,7 +181,7 @@ class AppState: ObservableObject {
             bonjourServices.removeValue(forKey: project.id)
         }
 
-        projects[index].port = nil
+        // Keep port for reuse on next start
         projects[index].status = .stopped
     }
 

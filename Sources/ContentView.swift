@@ -146,6 +146,9 @@ struct DropZoneView: View {
 struct ProjectCard: View {
     let project: Project
     @ObservedObject var appState: AppState
+    @State private var showEditPopover = false
+    @State private var editName: String = ""
+    @State private var editPort: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -156,6 +159,32 @@ struct ProjectCard: View {
 
                 Text(project.name)
                     .font(.headline)
+
+                // Edit button
+                Button(action: {
+                    editName = project.name
+                    editPort = project.port.map { String($0) } ?? ""
+                    showEditPopover = true
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .foregroundColor(.secondary)
+                .popover(isPresented: $showEditPopover, arrowEdge: .bottom) {
+                    EditProjectView(
+                        name: $editName,
+                        port: $editPort,
+                        onSave: {
+                            let portNum = Int(editPort)
+                            appState.updateProject(project, name: editName, port: portNum)
+                            showEditPopover = false
+                        },
+                        onCancel: {
+                            showEditPopover = false
+                        }
+                    )
+                }
 
                 // Project type badge
                 Text(project.type.rawValue)
@@ -264,5 +293,53 @@ struct ProjectCard: View {
         case .running: return .green
         case .error: return .red
         }
+    }
+}
+
+// MARK: - Edit Project View
+
+struct EditProjectView: View {
+    @Binding var name: String
+    @Binding var port: String
+    let onSave: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Edit Project")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Name")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("Project name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Port")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextField("8000", text: $port)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            HStack {
+                Button("Cancel") {
+                    onCancel()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("Save") {
+                    onSave()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(width: 250)
     }
 }
