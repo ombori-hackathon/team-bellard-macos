@@ -10,8 +10,13 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Serv")
-                    .font(.title.bold())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Serv")
+                        .font(.title.bold())
+                    Text("Instant local web hosting")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
                 Text("\(appState.projects.filter { $0.status == .running }.count) running")
                     .foregroundColor(.secondary)
