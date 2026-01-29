@@ -8,7 +8,17 @@ class PortManager {
 
     private init() {}
 
-    func acquirePort() -> Int? {
+    func acquirePort(preferred: Int? = nil) -> Int? {
+        // Try preferred port first
+        if let preferred = preferred,
+           portRange.contains(preferred),
+           !usedPorts.contains(preferred),
+           isPortAvailable(preferred) {
+            usedPorts.insert(preferred)
+            return preferred
+        }
+
+        // Fall back to any available port
         for port in portRange.shuffled() {
             if !usedPorts.contains(port) && isPortAvailable(port) {
                 usedPorts.insert(port)

@@ -1,8 +1,17 @@
 import SwiftUI
 import AppKit
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var appState: AppState?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        appState?.stopAllProjects()
+    }
+}
+
 @main
 struct ServApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
     @Environment(\.openWindow) private var openWindow
 
@@ -15,6 +24,9 @@ struct ServApp: App {
         // Menu Bar
         MenuBarExtra {
             MenuBarView(appState: appState)
+                .onAppear {
+                    appDelegate.appState = appState
+                }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "server.rack")
@@ -30,6 +42,9 @@ struct ServApp: App {
         // Main Window
         Window("Serv", id: "main") {
             ContentView(appState: appState)
+                .onAppear {
+                    appDelegate.appState = appState
+                }
         }
         .defaultSize(width: 600, height: 500)
         .windowStyle(.titleBar)

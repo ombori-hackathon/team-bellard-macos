@@ -1,5 +1,19 @@
 import Foundation
 
+// MARK: - Saved Project (for persistence)
+
+struct SavedProject: Codable {
+    let folderPath: String
+    let useHTTPS: Bool
+    let preferredPort: Int?
+
+    init(from project: Project) {
+        self.folderPath = project.folderURL.path
+        self.useHTTPS = project.useHTTPS
+        self.preferredPort = project.port
+    }
+}
+
 // MARK: - Project Model
 
 struct Project: Identifiable {
@@ -34,6 +48,22 @@ struct Project: Identifiable {
         self.status = .stopped
         self.port = nil
         self.useHTTPS = false
+        self.packageManager = nil
+        self.scripts = nil
+        self.selectedScript = nil
+        self.hasNodeModules = false
+    }
+
+    init(from saved: SavedProject) {
+        let url = URL(fileURLWithPath: saved.folderPath)
+        self.id = UUID()
+        self.folderURL = url
+        self.name = url.lastPathComponent
+        self.sanitizedName = Project.sanitizeName(url.lastPathComponent)
+        self.type = .static
+        self.status = .stopped
+        self.port = saved.preferredPort
+        self.useHTTPS = saved.useHTTPS
         self.packageManager = nil
         self.scripts = nil
         self.selectedScript = nil
