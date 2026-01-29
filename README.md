@@ -1,6 +1,6 @@
 # Serv
 
-A native macOS menu bar application that lets you run any folder as a local web server with human-friendly `.local` domain names.
+A native macOS menu bar application that lets you run any folder as a local web server with human-friendly `.local` domain names and HTTPS support.
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
@@ -10,16 +10,16 @@ A native macOS menu bar application that lets you run any folder as a local web 
 
 Serv (pronounced "serve") is a lightweight macOS utility that makes local web development effortless. Simply drag and drop a folder, and Serv will:
 
-- Serve it as a local HTTP server
-- Assign a random available port
+- Serve it as a local HTTP or HTTPS server
+- Assign a random available port (or reuse your preferred port)
 - Register a `.local` domain name via mDNS/Bonjour
-- Let you access it at `http://your-folder.local:port`
+- Let you access it at `http://your-folder.local:port` or `https://your-folder.local:port`
 
 No terminal commands. No configuration files. Just drag, drop, and browse.
 
 ## Features
 
-### Current Features (v1.0)
+### Core Features
 
 - **Menu Bar App** - Lives in your menu bar like Docker Desktop, always accessible
 - **Drag & Drop** - Add folders by dragging them into the app or using the file picker
@@ -28,19 +28,38 @@ No terminal commands. No configuration files. Just drag, drop, and browse.
 - **Local DNS (.local domains)** - Access projects via `project-name.local:port` instead of `localhost`
 - **Multiple Projects** - Run multiple folders simultaneously, each on its own port
 - **Auto Port Assignment** - Automatically finds available ports (8000-9999 range)
+
+### HTTPS Support
+
+- **One-Click HTTPS** - Toggle HTTPS on/off per project with the lock icon
+- **Local CA Certificate** - Generates a trusted root CA on first use
+- **Auto-Trusted Certificates** - Prompts for admin password to trust CA in system keychain
+- **Per-Domain Certificates** - Automatically generates certificates for each project
+- **No Browser Warnings** - Certificates are trusted by your system
+
+### Persistence
+
+- **Remember Projects** - Added folders persist across app restarts
+- **Consistent Ports** - Same port assigned to each project every time
+- **Save HTTPS Preference** - Remember which projects use HTTPS
+- **Settings Location** - `~/Library/Application Support/Serv/projects.json`
+
+### Project Detection
+
 - **Node.js Detection** - Automatically detects Node.js projects (package.json)
 - **Package Manager Detection** - Identifies yarn vs npm based on lock files
-- **Quick Actions** - Open in browser, copy URL, start/stop with one click
 
-### Planned Features
+### Network Sharing
 
-- **Persistent Projects** - Remember added folders across app restarts
-- **Consistent Ports** - Same port assigned to each project every time
-- **Custom Ports** - Allow users to manually set preferred ports
-- **Node.js Script Runner** - Run npm/yarn scripts directly from the app
-- **Dependency Installation** - One-click `npm install` or `yarn install`
-- **Real-time Output** - View script output in the app
-- **Auto-start** - Optionally start projects when app launches
+- **LAN Access** - Servers bind to `0.0.0.0`, accessible from other devices on your network
+- **Share via IP** - Others can access via `http://your-ip:port`
+- **mDNS Support** - `.local` domains work on macOS, iOS, and Linux (with Avahi)
+
+### Graceful Shutdown
+
+- **Clean Exit** - All servers stop properly when app quits
+- **Port Release** - Ports are released back to the system
+- **Service Cleanup** - Bonjour/mDNS services are unregistered
 
 ## Installation
 
@@ -70,6 +89,13 @@ swift run Serv
 3. **Start serving** - Click the play button next to your project
 4. **Access in browser** - Click "Open" or visit `http://folder-name.local:port`
 
+### Enable HTTPS
+
+1. Click the **lock icon** next to any project
+2. First time only: Enter your admin password to trust the CA certificate
+3. The project restarts with HTTPS enabled
+4. Access via `https://folder-name.local:port`
+
 ### Menu Bar Quick Access
 
 Click the menu bar icon to:
@@ -78,28 +104,37 @@ Click the menu bar icon to:
 - Open projects in browser
 - Access the main window
 
+### Sharing with Others on Your Network
+
+1. Find your IP: System Preferences → Network (or run `ipconfig getifaddr en0`)
+2. Share the URL: `http://192.168.x.x:port`
+3. Others on the same network can access your served files
+
 ## Architecture
 
 ```
 Sources/
-├── ServApp.swift        # App entry point, menu bar setup
-├── ContentView.swift    # Main window UI
-├── AppState.swift       # Centralized state management
-├── Models.swift         # Data models (Project, enums)
-├── StaticServer.swift   # HTTP server (Swifter-based)
-├── BonjourService.swift # mDNS/.local domain registration
-└── PortManager.swift    # Port allocation and tracking
+├── ServApp.swift           # App entry point, menu bar setup, graceful shutdown
+├── ContentView.swift       # Main window UI
+├── AppState.swift          # Centralized state management, persistence
+├── Models.swift            # Data models (Project, SavedProject, enums)
+├── StaticServer.swift      # HTTP/HTTPS server (Vapor-based)
+├── CertificateManager.swift # CA and certificate generation
+├── BonjourService.swift    # mDNS/.local domain registration
+└── PortManager.swift       # Port allocation and tracking
 ```
 
 ### Dependencies
 
-- [Swifter](https://github.com/httpswift/swifter) - Lightweight HTTP server
+- [Vapor](https://github.com/vapor/vapor) - Swift web framework with TLS/HTTPS support
 
 ## How It Works
 
-1. **HTTP Server**: Uses Swifter to create an embedded HTTP server that serves static files from the selected folder
-2. **mDNS Registration**: Uses `dns-sd` to register the hostname with Bonjour, making `project-name.local` resolve to `127.0.0.1`
-3. **Port Management**: Scans for available ports in the 8000-9999 range and tracks which ports are in use
+1. **HTTP/HTTPS Server**: Uses Vapor to create an embedded server that serves static files with optional TLS encryption
+2. **Certificate Management**: Generates a local CA certificate (trusted in your keychain) and signs per-domain certificates using OpenSSL
+3. **mDNS Registration**: Uses `dns-sd` to register the hostname with Bonjour, making `project-name.local` resolve to `127.0.0.1`
+4. **Port Management**: Scans for available ports in the 8000-9999 range, remembers preferred ports per project
+5. **Persistence**: Saves project list to JSON file in Application Support folder
 
 ## Project Types
 
@@ -120,6 +155,20 @@ Serv serves files with correct MIME types for:
 | Fonts | `.woff`, `.woff2`, `.ttf`, `.otf` |
 | Media | `.mp4`, `.webm`, `.mp3`, `.wav` |
 | Documents | `.pdf`, `.txt`, `.md` |
+
+## Certificate Storage
+
+Certificates are stored in `~/Library/Application Support/Serv/`:
+
+```
+Serv/
+├── ca-cert.pem          # Root CA certificate (trusted in keychain)
+├── ca-key.pem           # Root CA private key
+├── projects.json        # Saved project settings
+└── certs/
+    ├── project.local-cert.pem  # Per-domain certificate
+    └── project.local-key.pem   # Per-domain private key
+```
 
 ## Development
 
@@ -144,6 +193,14 @@ swift build -c release
 
 See [SPEC.md](./SPEC.md) for detailed feature specifications and implementation phases.
 
+## Planned Features
+
+- **Node.js Script Runner** - Run npm/yarn scripts directly from the app
+- **Dependency Installation** - One-click `npm install` or `yarn install`
+- **Real-time Output** - View script output in the app
+- **Auto-start** - Optionally start projects when app launches
+- **Custom Ports** - Allow users to manually set preferred ports
+
 ## Contributing
 
 1. Create a feature branch
@@ -156,4 +213,4 @@ MIT License - see LICENSE file for details.
 
 ---
 
-Built with SwiftUI for the Ombori Hackathon 2026.
+Built with SwiftUI and Vapor for the Ombori Hackathon 2026.

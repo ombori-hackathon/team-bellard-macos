@@ -11,6 +11,52 @@ class AppState: ObservableObject {
     private var servers: [UUID: StaticServer] = [:]
     private var bonjourServices: [UUID: BonjourService] = [:]
 
+    private let settingsURL: URL = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let servDir = appSupport.appendingPathComponent("Serv")
+        try? FileManager.default.createDirectory(at: servDir, withIntermediateDirectories: true)
+        return servDir.appendingPathComponent("projects.json")
+    }()
+
+    init() {
+        loadProjects()
+    }
+
+    // MARK: - Persistence
+
+    private func loadProjects() {
+        guard FileManager.default.fileExists(atPath: settingsURL.path),
+              let data = try? Data(contentsOf: settingsURL),
+              let savedProjects = try? JSONDecoder().decode([SavedProject].self, from: data) else {
+            return
+        }
+
+        for saved in savedProjects {
+            let url = URL(fileURLWithPath: saved.folderPath)
+            // Only restore if folder still exists
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+
+            var project = Project(from: saved)
+
+            // Detect Node.js project
+            let packageJsonURL = url.appendingPathComponent("package.json")
+            if FileManager.default.fileExists(atPath: packageJsonURL.path) {
+                project.type = .nodejs
+                detectPackageManager(for: &project)
+                parsePackageJson(for: &project)
+            }
+
+            projects.append(project)
+        }
+    }
+
+    private func saveProjects() {
+        let savedProjects = projects.map { SavedProject(from: $0) }
+        if let data = try? JSONEncoder().encode(savedProjects) {
+            try? data.write(to: settingsURL)
+        }
+    }
+
     func addProject(folderURL: URL) {
         // Check if project already exists
         if projects.contains(where: { $0.folderURL == folderURL }) {
@@ -28,11 +74,19 @@ class AppState: ObservableObject {
         }
 
         projects.append(project)
+        saveProjects()
     }
 
     func removeProject(_ project: Project) {
         stopProject(project)
         projects.removeAll { $0.id == project.id }
+        saveProjects()
+    }
+
+    func stopAllProjects() {
+        for project in projects where project.status == .running {
+            stopProject(project)
+        }
     }
 
     func startProject(_ project: Project) {
@@ -42,6 +96,7 @@ class AppState: ObservableObject {
 
         let server = StaticServer(folderURL: project.folderURL)
         let useHTTPS = projects[index].useHTTPS
+        let preferredPort = projects[index].port
 
         Task {
             do {
@@ -56,10 +111,11 @@ class AppState: ObservableObject {
                     keyPath = certs.keyPath
                 }
 
-                let port = try server.start(https: useHTTPS, certPath: certPath, keyPath: keyPath)
+                let port = try server.start(https: useHTTPS, certPath: certPath, keyPath: keyPath, preferredPort: preferredPort)
                 servers[project.id] = server
                 projects[index].port = port
                 projects[index].status = .running
+                saveProjects()
 
                 // Register mDNS/Bonjour for .local domain
                 let sanitizedName = projects[index].sanitizedName
@@ -121,6 +177,7 @@ class AppState: ObservableObject {
 
         // Toggle HTTPS
         projects[index].useHTTPS.toggle()
+        saveProjects()
 
         // If enabling HTTPS for the first time, ensure CA is set up
         if projects[index].useHTTPS {

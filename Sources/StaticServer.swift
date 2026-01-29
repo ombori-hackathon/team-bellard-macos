@@ -13,8 +13,8 @@ class StaticServer {
         self.folderURL = folderURL
     }
 
-    func start(https: Bool = false, certPath: String? = nil, keyPath: String? = nil) throws -> Int {
-        guard let port = PortManager.shared.acquirePort() else {
+    func start(https: Bool = false, certPath: String? = nil, keyPath: String? = nil, preferredPort: Int? = nil) throws -> Int {
+        guard let port = PortManager.shared.acquirePort(preferred: preferredPort) else {
             throw ServerError.noPortAvailable
         }
 
