@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Serv** is a native macOS application that allows users to run any folder as a local web server with human-friendly local DNS names. The app supports both static file serving and intelligent Node.js project detection with dependency management and script execution.
+**Serv** is a native macOS menu bar application that allows users to run any folder as a local web server with human-friendly local DNS names and HTTPS support. The app supports both static file serving and intelligent Node.js project detection with dependency management and script execution.
 
 **No backend required** - this is a pure Swift/SwiftUI application.
 
@@ -14,212 +14,239 @@
 |----------|--------|
 | **App Name** | Serv |
 | **Multiple Projects** | Yes, run simultaneously |
-| **Port Strategy** | Auto-assigned random available ports |
-| **URL Format** | `project-name.local:port` (e.g., `movies-shop.local:8742`) |
+| **Port Strategy** | Auto-assigned, persisted per project, user-editable |
+| **URL Format** | `http(s)://project-name.local:port` |
+| **HTTP Library** | Vapor (with TLS support) |
+| **App Style** | Menu bar app (like Docker Desktop) |
+
+---
+
+## Implementation Status
+
+### Completed Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Folder Selection (drag & drop + picker) | ✅ Done | |
+| Static File Server | ✅ Done | Vapor-based |
+| Directory Listing | ✅ Done | Styled HTML listing |
+| Auto Port Assignment | ✅ Done | 8000-9999 range |
+| Local DNS (.local domains) | ✅ Done | dns-sd based mDNS |
+| Multiple Projects | ✅ Done | Each with own server |
+| Menu Bar App | ✅ Done | Docker Desktop style |
+| HTTPS Support | ✅ Done | Local CA + per-domain certs |
+| Persistence | ✅ Done | ~/Library/Application Support/Serv/ |
+| Consistent Ports | ✅ Done | Same port on restart |
+| Project Editing | ✅ Done | Edit name and port |
+| Graceful Shutdown | ✅ Done | Clean exit on quit |
+| Network Sharing | ✅ Done | LAN accessible (0.0.0.0) |
+| Node.js Detection | ✅ Done | Detects package.json |
+| Package Manager Detection | ✅ Done | yarn.lock vs package-lock.json |
+
+### Pending Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Dependency Installation | ⏳ Pending | npm/yarn install |
+| Script Execution | ⏳ Pending | Run npm scripts |
+| Real-time Output | ⏳ Pending | Show script output |
+| Auto-start on Launch | ⏳ Pending | Optional preference |
 
 ---
 
 ## Core Concept
 
 Users can drag or select any folder, and the app will:
-1. Serve it as a local web server on a randomly assigned port
+1. Serve it as a local HTTP or HTTPS server on a persisted port
 2. Make it accessible via a pretty local URL like `project-name.local:port`
 3. Support multiple projects running simultaneously, each with its own port
-4. For Node.js projects: detect, install dependencies, and run scripts
+4. For Node.js projects: detect package manager and show project info
 
 ---
 
 ## Features
 
-### Feature 1: Folder Selection
+### Feature 1: Folder Selection ✅ COMPLETED
 **Description:** Allow users to pick or drag any folder into the app.
 
-**Details:**
-- Drag and drop support in the main window
-- File picker button to browse and select folders
-- Display selected folder path and name
-- Support adding multiple folders (multiple projects)
-- Remember recently used folders (optional enhancement)
-
-**Technical approach:**
+**Implementation:**
 - SwiftUI `onDrop` modifier for drag-and-drop
-- `NSOpenPanel` for folder picker
-- Store folder paths in app state (array of projects)
+- `NSOpenPanel` for folder picker via "Browse..." button
+- Multiple folders supported simultaneously
+- Folders persist across app restarts
 
 ---
 
-### Feature 2: Static File Server
+### Feature 2: Static File Server ✅ COMPLETED
 **Description:** Serve the selected folder under a local web server.
 
-**Details:**
-- Start an HTTP server on a randomly assigned available port
-- Serve all files from the selected folder
-- Support common MIME types (HTML, CSS, JS, images, JSON, etc.)
-- Show server status (running/stopped) per project
-- Display the local URL to access the server
-- Button to open in default browser
-- Button to copy URL to clipboard
-
-**Technical approach:**
-- Use Swift NIO, Swifter, or Vapor for embedded HTTP server
-- Auto-assign available port (scan for free port)
-- Serve index.html by default for directory roots
-- Each project gets its own server instance
+**Implementation:**
+- Vapor framework for HTTP/HTTPS server
+- Auto-assign available port (8000-9999 range)
+- Proper MIME types for all common file formats
+- Directory listing with styled HTML when no index.html
+- Open in browser and copy URL buttons
 
 ---
 
-### Feature 3: Local DNS with Pretty Names
+### Feature 3: Local DNS with Pretty Names ✅ COMPLETED
 **Description:** Access projects via human-friendly URLs like `movies-shop.local:8742`.
 
-**Details:**
-- Derive the local hostname from the folder name
-- Sanitize folder names for DNS compatibility (lowercase, replace spaces with hyphens)
-- Register the hostname via mDNS/Bonjour
-- Each project gets its own `.local` domain with its assigned port
-- Example: folder "Movies Shop" on port 8742 → `movies-shop.local:8742`
-
-**Technical approach:**
-- Use `NetService` (Bonjour/mDNS) to publish each service
-- `.local` domain is handled by macOS mDNS resolver automatically
-- Each project registers its own mDNS name pointing to its port
+**Implementation:**
+- Folder names sanitized for DNS (lowercase, hyphens)
+- `dns-sd -P` command for mDNS/Bonjour registration
+- Registers both service AND hostname-to-IP mapping
+- Works on macOS, iOS, Linux (with Avahi)
 
 ---
 
-### Feature 4: Node.js Project Detection
+### Feature 4: Node.js Project Detection ✅ COMPLETED
 **Description:** Automatically identify if the selected folder is a Node.js project.
 
-**Details:**
-- Check for presence of `package.json` in the folder root
-- Parse `package.json` to extract:
-  - Project name
-  - Available scripts
-  - Dependencies info
-- Update UI to show "Node.js Project Detected" indicator
-- Switch to Node.js mode with additional options
-
-**Technical approach:**
-- File system check for `package.json`
-- Swift `JSONDecoder` to parse package.json
-- Store parsed data in project state
+**Implementation:**
+- Checks for `package.json` in folder root
+- Parses package.json to extract scripts
+- Detects package manager (yarn.lock vs package-lock.json)
+- Shows "Node.js" badge in UI
 
 ---
 
-### Feature 5: Dependency Installation Prompt
-**Description:** For Node.js projects, prompt users to install dependencies using the appropriate package manager.
+### Feature 5: Menu Bar App ✅ COMPLETED
+**Description:** Run as a menu bar application like Docker Desktop.
 
-**Details:**
-- Detect package manager by checking for lock files:
-  - `yarn.lock` present → use Yarn
-  - `package-lock.json` present → use npm
-  - Neither present → default to npm (or ask user)
-- Check if `node_modules` folder exists
-- If no `node_modules`, prompt user: "Dependencies not installed. Run [yarn install / npm install]?"
-- Show installation progress/output in the app
-- Handle installation errors gracefully
-
-**Technical approach:**
-- File system checks for lock files and node_modules
-- `Process` class to spawn `yarn install` or `npm install`
-- Capture stdout/stderr and display in UI
-- Show spinner/progress during installation
+**Implementation:**
+- MenuBarExtra with server rack icon
+- Shows running project count in menu bar
+- Quick access to start/stop projects
+- Open in browser directly from menu
+- Full window available via "Open Serv"
 
 ---
 
-### Feature 6: Script Selection and Execution
-**Description:** Show users a list of available npm scripts and run the selected one.
+### Feature 6: HTTPS Support ✅ COMPLETED
+**Description:** Serve projects over HTTPS with locally-trusted certificates.
 
-**Details:**
-- Parse `scripts` section from `package.json`
-- Display scripts in a list/dropdown (e.g., `dev`, `start`, `build`, `serve`)
-- Common scripts to highlight: `dev`, `start`, `serve` (likely to start a dev server)
-- On selection, run the script: `yarn <script>` or `npm run <script>`
-- Capture and display script output in real-time
-- The running dev server should be accessible via `project-name.local:port`
-- Show stop button to terminate the running script
-
-**Technical approach:**
-- Parse `scripts` object from package.json
-- `Process` class to run commands
-- Pipe stdout/stderr to UI in real-time
-- Track process ID to allow termination
-- Detect port from script output (e.g., "listening on port 3000")
-- Register mDNS name pointing to the detected port
+**Implementation:**
+- Generates root CA certificate on first HTTPS use
+- Prompts for admin password to trust CA in System Keychain
+- Auto-generates per-domain certificates signed by CA
+- Certificates include SAN for .local, localhost, 127.0.0.1
+- Toggle HTTPS per project with lock icon
+- Certificates stored in `~/Library/Application Support/Serv/`
 
 ---
 
-## User Interface Concept
+### Feature 7: Persistence ✅ COMPLETED
+**Description:** Remember all added projects across app restarts.
 
+**Implementation:**
+- Projects saved to `~/Library/Application Support/Serv/projects.json`
+- Stores: folder path, HTTPS preference, assigned port, custom name
+- Auto-saves on any change
+- Restores projects on app launch (if folders still exist)
+
+---
+
+### Feature 8: Consistent Port Assignment ✅ COMPLETED
+**Description:** Each project always runs on the same port.
+
+**Implementation:**
+- Port persisted per project
+- Tries preferred port first on start
+- Falls back to random if preferred unavailable
+- Port preserved when stopping/starting
+
+---
+
+### Feature 9: Project Editing ✅ COMPLETED
+**Description:** Allow users to edit project name and port.
+
+**Implementation:**
+- Pencil icon opens edit popover
+- Custom name changes the .local domain
+- Port can be set to any value (1024-65535)
+- Changes auto-save and restart server if running
+
+---
+
+### Feature 10: Graceful Shutdown ✅ COMPLETED
+**Description:** Clean shutdown when app quits.
+
+**Implementation:**
+- AppDelegate observes app termination
+- Stops all running Vapor servers
+- Releases ports back to system
+- Unregisters Bonjour/mDNS services
+
+---
+
+### Feature 11: Network Sharing ✅ COMPLETED
+**Description:** Allow access from other devices on the same network.
+
+**Implementation:**
+- Servers bind to `0.0.0.0` (all interfaces)
+- Accessible via machine's IP address + port
+- .local domains work on devices with mDNS support
+
+---
+
+### Feature 12: Dependency Installation ⏳ PENDING
+**Description:** For Node.js projects, prompt users to install dependencies.
+
+**Planned:**
+- Check for node_modules folder
+- Prompt to run yarn install / npm install
+- Show installation progress in UI
+
+---
+
+### Feature 13: Script Execution ⏳ PENDING
+**Description:** Run npm/yarn scripts from the app.
+
+**Planned:**
+- List available scripts from package.json
+- Run selected script
+- Real-time output display
+- Process management (stop/restart)
+
+---
+
+## User Interface
+
+### Menu Bar
+```
+┌──────────────────────────────┐
+│ 🖥 Serv                      │
+├──────────────────────────────┤
+│ ● movies-shop     :8742  ▶️ ➡️│
+│ ○ portfolio       :9156  ▶️   │
+├──────────────────────────────┤
+│ Open Serv                    │
+│ Quit Serv                    │
+└──────────────────────────────┘
+```
+
+### Main Window
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Serv                                               [─][□][×] │
+│  🖥 Serv                                    1 running        │
 ├─────────────────────────────────────────────────────────────┤
-│                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │                                                     │   │
-│  │         Drag & Drop Folders Here                   │   │
-│  │                                                     │   │
-│  │              or [Browse...]                         │   │
-│  │                                                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  ─────────────────────────────────────────────────────────  │
-│  Running Projects (2)                                       │
-│  ─────────────────────────────────────────────────────────  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ 📁 movies-shop                              [■ Stop] │   │
-│  │    Type: Node.js (yarn)                              │   │
-│  │    Script: dev                                       │   │
-│  │    URL: http://movies-shop.local:8742               │   │
-│  │    [Open] [Copy URL]                                 │   │
+│  │         Drop folders here                           │   │
+│  │              [Browse]                               │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ 📁 portfolio                                [■ Stop] │   │
-│  │    Type: Static                                      │   │
-│  │    URL: http://portfolio.local:9156                 │   │
-│  │    [Open] [Copy URL]                                 │   │
+│  │ 📁 movies-shop ✏️  [Node.js] [HTTPS]    🔒 ● ▶️ ✕   │   │
+│  │    /Users/john/projects/movies-shop                 │   │
+│  │    https://movies-shop.local:8742                   │   │
+│  │                                    [Open] [Copy]    │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│  ─────────────────────────────────────────────────────────  │
-│  Output: movies-shop                           [Clear]      │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ $ yarn dev                                          │   │
-│  │ VITE v5.0.0  ready in 500ms                        │   │
-│  │ ➜  Local:   http://localhost:3000/                 │   │
-│  │ ➜  Network: http://192.168.1.10:3000/              │   │
+│  │ 📁 portfolio ✏️  [Static]            🔓 ○ ▶️ ✕      │   │
+│  │    /Users/john/sites/portfolio                      │   │
 │  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Node.js Project Setup Flow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Serv - Setup: movies-shop                                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  📁 /Users/john/projects/movies-shop                       │
-│                                                             │
-│  ✓ Node.js project detected (package.json)                 │
-│  ✓ Package manager: yarn (yarn.lock found)                 │
-│  ⚠ Dependencies not installed (node_modules missing)       │
-│                                                             │
-│  [Install Dependencies]                                     │
-│                                                             │
-│  ─────────────────────────────────────────────────────────  │
-│                                                             │
-│  Select a script to run:                                    │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ ● dev      - vite                                   │   │
-│  │ ○ build    - vite build                             │   │
-│  │ ○ preview  - vite preview                           │   │
-│  │ ○ test     - vitest                                 │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  [▶ Start Project]                      [Cancel]            │
-│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,42 +257,29 @@ Users can drag or select any folder, and the app will:
 | Component | Technology |
 |-----------|------------|
 | UI Framework | SwiftUI |
-| HTTP Server | Swift NIO / Swifter / Vapor (embedded) |
-| Local DNS | NetService (Bonjour/mDNS) |
+| HTTP/HTTPS Server | Vapor (with NIOSSL) |
+| Local DNS | dns-sd (mDNS/Bonjour) |
+| Certificate Generation | OpenSSL (via Process) |
+| Keychain Trust | security command (via AppleScript) |
 | Process Management | Foundation `Process` class |
 | JSON Parsing | Swift `Codable` / `JSONDecoder` |
 | File System | Foundation `FileManager` |
+| Persistence | JSON file in Application Support |
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                       SwiftUI Views                          │
-│  (MainView, DropZone, ProjectCard, SetupSheet, OutputLog)   │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-┌──────────────────────────┴───────────────────────────────────┐
-│                      View Models                             │
-│  (AppState, ProjectViewModel)                                │
-│  - Manages list of active projects                           │
-│  - Each project has its own state                            │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-┌──────────────────────────┴───────────────────────────────────┐
-│                       Services                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │ HTTPServer   │  │ DNSService   │  │ ProcessRunner    │   │
-│  │ (per project)│  │ (per project)│  │ (npm/yarn)       │   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ ProjectDetector (package.json, lock files, etc.)     │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ PortManager (finds available ports, tracks usage)    │   │
-│  └──────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────┘
+Sources/
+├── ServApp.swift            # App entry, MenuBarExtra, graceful shutdown
+├── ContentView.swift        # Main window UI, project cards, edit popover
+├── AppState.swift           # State management, persistence, project operations
+├── Models.swift             # Project, SavedProject, enums
+├── StaticServer.swift       # Vapor HTTP/HTTPS server
+├── CertificateManager.swift # CA generation, certificate signing
+├── BonjourService.swift     # mDNS registration via dns-sd
+└── PortManager.swift        # Port allocation and tracking
 ```
 
 ---
@@ -273,163 +287,117 @@ Users can drag or select any folder, and the app will:
 ## Data Models
 
 ```swift
+struct SavedProject: Codable {
+    let folderPath: String
+    let useHTTPS: Bool
+    let preferredPort: Int?
+    let customName: String?
+}
+
 struct Project: Identifiable {
     let id: UUID
     let folderURL: URL
-    let name: String           // Derived from folder name
-    let sanitizedName: String  // DNS-safe name (lowercase, hyphens)
+    var customName: String?
 
-    var type: ProjectType      // .static or .nodejs
-    var status: ProjectStatus  // .stopped, .starting, .running, .error
-    var port: Int?             // Assigned port when running
-    var url: String?           // Full URL (e.g., "http://name.local:port")
+    var name: String          // customName ?? folderURL.lastPathComponent
+    var sanitizedName: String // DNS-safe name
+
+    var type: ProjectType     // .static or .nodejs
+    var status: ProjectStatus // .stopped, .starting, .running, .error
+    var port: Int?
+    var useHTTPS: Bool
+
+    var url: String?          // http(s)://name.local:port
 
     // Node.js specific
-    var packageManager: PackageManager?  // .npm or .yarn
-    var scripts: [String: String]?       // From package.json
-    var selectedScript: String?
+    var packageManager: PackageManager?
+    var scripts: [String: String]?
     var hasNodeModules: Bool
 }
+```
 
-enum ProjectType {
-    case static
-    case nodejs
-}
+---
 
-enum ProjectStatus {
-    case stopped
-    case starting
-    case running
-    case error(String)
-}
+## File Storage
 
-enum PackageManager {
-    case npm
-    case yarn
-}
+```
+~/Library/Application Support/Serv/
+├── projects.json            # Saved project list
+├── ca-cert.pem              # Root CA certificate
+├── ca-key.pem               # Root CA private key
+├── ca-cert.srl              # CA serial number
+└── certs/
+    ├── project.local-cert.pem   # Per-domain certificate
+    └── project.local-key.pem    # Per-domain private key
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Basic Static Server
+### Phase 1: Basic Static Server ✅ COMPLETED
 - [x] Project setup (rename app to Serv)
-- [ ] Folder selection (drag & drop + picker)
-- [ ] Embedded HTTP server to serve static files
-- [ ] Auto-assign available port
-- [ ] Display URL, open in browser
+- [x] Folder selection (drag & drop + picker)
+- [x] Embedded HTTP server to serve static files
+- [x] Auto-assign available port
+- [x] Display URL, open in browser, copy URL
 
-### Phase 2: Local DNS
-- [ ] mDNS/Bonjour integration
-- [ ] Register `project-name.local` pointing to assigned port
-- [ ] Handle multiple simultaneous registrations
+### Phase 2: Local DNS ✅ COMPLETED
+- [x] mDNS/Bonjour integration via dns-sd
+- [x] Register `project-name.local` pointing to assigned port
+- [x] Handle multiple simultaneous registrations
 
-### Phase 3: Multi-Project Support
-- [ ] UI for multiple running projects
-- [ ] Project cards with status, URL, controls
-- [ ] Start/stop individual projects
+### Phase 3: Multi-Project Support ✅ COMPLETED
+- [x] UI for multiple running projects
+- [x] Project cards with status, URL, controls
+- [x] Start/stop individual projects
 
-### Phase 4: Node.js Detection
-- [ ] Detect package.json
-- [ ] Parse and display project info
-- [ ] Detect package manager (yarn.lock vs package-lock.json)
+### Phase 4: Menu Bar App ✅ COMPLETED
+- [x] MenuBarExtra with icon and running count
+- [x] Quick project list with start/stop
+- [x] Open in browser from menu bar
 
-### Phase 5: Dependency Management
+### Phase 5: HTTPS Support ✅ COMPLETED
+- [x] Switch from Swifter to Vapor for TLS
+- [x] CA certificate generation
+- [x] Keychain trust via AppleScript
+- [x] Per-domain certificate generation
+- [x] HTTPS toggle per project
+
+### Phase 6: Persistence & Port Management ✅ COMPLETED
+- [x] Save projects to JSON file
+- [x] Restore on app launch
+- [x] Consistent port per project
+- [x] User-editable name and port
+
+### Phase 7: Node.js Detection ✅ COMPLETED
+- [x] Detect package.json
+- [x] Parse and display project info
+- [x] Detect package manager
+
+### Phase 8: Graceful Shutdown ✅ COMPLETED
+- [x] Stop all servers on app quit
+- [x] Release ports
+- [x] Unregister Bonjour services
+
+### Phase 9: Dependency Management ⏳ PENDING
 - [ ] Check for node_modules
 - [ ] Run install command with output
 - [ ] Progress/spinner during installation
 
-### Phase 6: Script Execution
+### Phase 10: Script Execution ⏳ PENDING
 - [ ] List available scripts from package.json
 - [ ] Run selected script
 - [ ] Real-time output display
-- [ ] Detect port from output
 - [ ] Process management (stop/restart)
-
-### Phase 7: Persistence & Port Management
-- [ ] Remember added folders across app restarts
-- [ ] Assign consistent port per project (same port each time)
-- [ ] Allow users to manually change/customize port per project
-- [ ] Store project settings (folder path, assigned port, preferences)
-
-### Phase 8: Polish
-- [ ] Error handling
-- [ ] Edge cases
-- [ ] UI refinements
-- [ ] Auto-start projects on app launch (optional)
-
----
-
-## Confirmed Features (To Implement)
-
-### Feature 9: HTTPS Support
-**Description:** Serve projects over HTTPS with locally-trusted certificates.
-
-**Details:**
-- Generate a local Certificate Authority (CA) on first run
-- User trusts the CA once in macOS Keychain
-- Generate certificates for each `.local` domain signed by the CA
-- Swifter supports TLS - pass certificate and key to server
-- URLs become `https://project-name.local:port`
-
-**Technical approach:**
-- Use Security framework or OpenSSL to generate CA and certs
-- Store CA in `~/Library/Application Support/Serv/`
-- Prompt user to trust CA via Keychain Access (or automate with `security` command)
-- Generate per-project certs on demand, cache them
-
-**Open questions:**
-- Use same port for HTTPS, or separate ports (e.g., 443xx range)?
-- Offer both HTTP and HTTPS, or HTTPS only?
-
----
-
-### Feature 7: Persistence
-**Description:** Remember all added projects across app restarts.
-
-**Details:**
-- Save project list to disk (UserDefaults or JSON file)
-- On app launch, restore all previously added projects
-- Projects remain in stopped state until user starts them
-- Remove project = remove from persistence
-
-**Technical approach:**
-- Use `UserDefaults` or `~/Library/Application Support/Serv/projects.json`
-- Store: folder path, assigned port, project type, preferences
-
----
-
-### Feature 8: Consistent Port Assignment
-**Description:** Each project always runs on the same port (unless user changes it).
-
-**Details:**
-- First time a project is added, assign a random available port
-- Save this port assignment persistently
-- On subsequent runs, use the same port
-- If port is occupied, show error and offer to pick a new one
-- Allow users to manually change port via UI (settings per project)
-
-**Technical approach:**
-- Store port in project persistence data
-- On start: check if assigned port is available
-- If not available: prompt user (use different port or wait)
-- Add "Change Port" option in project card UI
-
----
-
-## Open Questions (Remaining)
-
-1. **Static server for Node.js projects:**
-   - If user selects a Node.js project but wants to serve it statically (e.g., a built `dist` folder), should we offer both options?
 
 ---
 
 ## Related Files
 
 - Swift client location: `apps/macos-client/`
-- This spec: `specs/2025-01-29-local-web-server-app.md`
+- README: `apps/macos-client/README.md`
 
 ---
 
-*Last updated: 2025-01-29*
+*Last updated: 2026-01-29*
