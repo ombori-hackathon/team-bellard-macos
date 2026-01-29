@@ -5,6 +5,8 @@ import SwiftUI
 class AppState: ObservableObject {
     @Published var projects: [Project] = []
     @Published var selectedProjectId: UUID?
+    @Published var isSettingUpHTTPS = false
+    @Published var httpsSetupError: String?
 
     private var servers: [UUID: StaticServer] = [:]
     private var bonjourServices: [UUID: BonjourService] = [:]
@@ -39,20 +41,32 @@ class AppState: ObservableObject {
         projects[index].status = .starting
 
         let server = StaticServer(folderURL: project.folderURL)
+        let useHTTPS = projects[index].useHTTPS
 
-        do {
-            let port = try server.start()
-            servers[project.id] = server
-            projects[index].port = port
-            projects[index].status = .running
+        Task {
+            do {
+                var certPath: String?
+                var keyPath: String?
 
-            // Register mDNS/Bonjour for .local domain
-            let sanitizedName = projects[index].sanitizedName
-            Task {
+                if useHTTPS {
+                    // Get certificate for this domain
+                    let domain = projects[index].sanitizedName + ".local"
+                    let certs = try await CertificateManager.shared.getCertificate(for: domain)
+                    certPath = certs.certPath
+                    keyPath = certs.keyPath
+                }
+
+                let port = try server.start(https: useHTTPS, certPath: certPath, keyPath: keyPath)
+                servers[project.id] = server
+                projects[index].port = port
+                projects[index].status = .running
+
+                // Register mDNS/Bonjour for .local domain
+                let sanitizedName = projects[index].sanitizedName
                 await registerBonjour(for: project.id, name: sanitizedName, port: port)
+            } catch {
+                projects[index].status = .error(error.localizedDescription)
             }
-        } catch {
-            projects[index].status = .error(error.localizedDescription)
         }
     }
 
@@ -93,6 +107,50 @@ class AppState: ObservableObject {
         } else {
             startProject(project)
         }
+    }
+
+    func toggleHTTPS(for project: Project) {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+
+        let wasRunning = projects[index].status == .running
+
+        // Stop if running
+        if wasRunning {
+            stopProject(project)
+        }
+
+        // Toggle HTTPS
+        projects[index].useHTTPS.toggle()
+
+        // If enabling HTTPS for the first time, ensure CA is set up
+        if projects[index].useHTTPS {
+            Task {
+                await setupHTTPSIfNeeded()
+
+                // Restart if was running
+                if wasRunning {
+                    startProject(projects[index])
+                }
+            }
+        } else if wasRunning {
+            // Restart with HTTP
+            startProject(projects[index])
+        }
+    }
+
+    func setupHTTPSIfNeeded() async {
+        guard !CertificateManager.shared.isCAInstalled else { return }
+
+        isSettingUpHTTPS = true
+        httpsSetupError = nil
+
+        do {
+            try await CertificateManager.shared.setupCA()
+        } catch {
+            httpsSetupError = error.localizedDescription
+        }
+
+        isSettingUpHTTPS = false
     }
 
     private func detectPackageManager(for project: inout Project) {

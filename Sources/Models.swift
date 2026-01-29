@@ -11,10 +11,12 @@ struct Project: Identifiable {
     var type: ProjectType
     var status: ProjectStatus
     var port: Int?
+    var useHTTPS: Bool
 
     var url: String? {
         guard let port = port else { return nil }
-        return "http://\(sanitizedName).local:\(port)"
+        let scheme = useHTTPS ? "https" : "http"
+        return "\(scheme)://\(sanitizedName).local:\(port)"
     }
 
     // Node.js specific
@@ -31,6 +33,7 @@ struct Project: Identifiable {
         self.type = .static
         self.status = .stopped
         self.port = nil
+        self.useHTTPS = false
         self.packageManager = nil
         self.scripts = nil
         self.selectedScript = nil
