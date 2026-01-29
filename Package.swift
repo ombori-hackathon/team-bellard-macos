@@ -2,11 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "TeamBellardClient",
-    platforms: [.macOS(.v14)],
+    name: "Xrve",
+    platforms: [.macOS(.v13)],
+    dependencies: [
+        .package(url: "https://github.com/httpswift/swifter.git", from: "1.5.0")
+    ],
     targets: [
         .executableTarget(
-            name: "TeamBellardClient",
+            name: "Xrve",
+            dependencies: [
+                .product(name: "Swifter", package: "swifter")
+            ],
             path: "Sources"
         ),
     ]
